@@ -1,58 +1,60 @@
 # Kitilix
 
-[Italiano](https://github.com/vroby65/kitilix/tree/italiano) · [Releases](https://github.com/vroby65/kitilix/releases/latest)
+[English](https://github.com/vroby65/kitilix/tree/main) · [Release](https://github.com/vroby65/kitilix/releases/latest)
 
-Kitilix is a Linux terminal with a toolbar, tabs, and panes in a single Kitty
-window. It uses Kitty 0.51.0 for OpenGL rendering, PTYs, input, and the terminal
-graphics protocol.
+Kitilix è un terminale Linux con barra strumenti, schede e pannelli nella stessa
+finestra di Kitty. Usa Kitty 0.51.0 per rendering OpenGL, PTY, input e
+protocollo grafico.
 
-## Linux executable
+## Eseguibile Linux
 
-Download [kitilix-linux-x86_64-en](https://github.com/vroby65/kitilix/releases/latest/download/kitilix-linux-x86_64-en)
-for Linux x86-64 and Xorg. The release provides a single ELF executable.
+Scarica [kitilix-linux-x86_64-it](https://github.com/vroby65/kitilix/releases/latest/download/kitilix-linux-x86_64-it)
+per Linux x86-64 e Xorg. Il rilascio contiene un singolo eseguibile ELF.
 
 ```bash
-chmod +x kitilix-linux-x86_64-en
-./kitilix-linux-x86_64-en
+chmod +x kitilix-linux-x86_64-it
+./kitilix-linux-x86_64-it
 ```
 
-The file bundles Kitty, `kitten`, Python, fonts, and shaders. At startup it
-extracts its runtime into a private directory under `TMPDIR`, which defaults
-to `/tmp`. The launcher removes that directory on exit. It uses Bash, GNU tar,
-and the host graphics libraries. The build was tested on Linux Mint 22.3 with
-glibc 2.39.
+Il file include Kitty, `kitten`, Python, font e shader. Il runtime si
+estrae in una directory privata sotto `TMPDIR` (per impostazione
+predefinita `/tmp`) e viene rimosso all'uscita. All’avvio servono Bash,
+GNU tar e le librerie grafiche del sistema. Il file è compilato e
+collaudato su Mint 22.3 con glibc 2.39.
 
-Personal settings live in `~/.config/kitilix/`, or under `XDG_CONFIG_HOME`
-when set. The profile contains `kitty.conf`, `preferences.json`, and
-`layout.json` once you save a layout.
+Le impostazioni personali si trovano in `~/.config/kitilix/`, oppure
+sotto `XDG_CONFIG_HOME` se impostata. Comprendono `kitty.conf`,
+`preferences.json` e `layout.json`.
 
-- `./package.sh` builds `dist/kitilix` from source.
-- `./install.sh` copies the ELF to
-  `${XDG_DATA_HOME:-~/.local/share}/kitilix/kitilix` and installs a desktop
-  menu entry with its icon.
+- `./package.sh` genera `dist/kitilix` dalle sorgenti.
+- `./install.sh` copia l'ELF in
+  `${XDG_DATA_HOME:-~/.local/share}/kitilix/kitilix` e registra la voce
+  di menu con la relativa icona.
 
-## Run from source
+## Avvio in sviluppo
 
 ```bash
-git clone https://github.com/vroby65/kitilix.git
+git clone --branch italiano https://github.com/vroby65/kitilix.git
 cd kitilix
 ./run.sh
 ```
 
-The first run downloads the verified Kitty and SIMDe archives and builds the
-engine in `.build/`. Later runs reuse that build. Kitilix has its own profile
-and can run alongside your distribution's Kitty.
+La prima esecuzione scarica gli archivi verificati di Kitty e SIMDe e
+compila il motore in `.build/`. Le esecuzioni successive usano la build
+locale. L'installazione di Kitty della distribuzione può essere usata
+contemporaneamente.
 
-Both the release executable and `run.sh` accept the same arguments.
+Sono disponibili gli stessi argomenti per `run.sh` e per l’eseguibile.
 
-- `--fresh` opens a terminal in your home directory without loading a saved layout.
-- A directory argument opens a terminal there, even when you have a saved layout.
+- `--fresh` apre un terminale nella home senza caricare il layout.
+- Un percorso di directory apre un terminale lì, anche se esiste un
+  layout salvato.
 
-### Dependencies
+### Dipendenze
 
-Linux Mint 22.3 on x86-64 and X11 is the tested platform. Building requires
-Python 3.12 with headers, GCC, pkg-config, standard Debian tools, and the
-following development packages. The names apply to Debian, Ubuntu, and Mint.
+Linux Mint 22.3 su x86_64 e X11 è la piattaforma collaudata. Per compilare servono
+Python 3.12 con gli header, GCC, pkg-config, gli strumenti base Debian e le
+librerie di sviluppo elencate qui con i nomi Debian/Ubuntu/Mint.
 
 ```text
 build-essential curl xz-utils patch pkg-config python3-dev
@@ -62,52 +64,61 @@ libdbus-1-dev libx11-xcb-dev libxcursor-dev libxrandr-dev libxi-dev
 libxinerama-dev libxkbcommon-x11-dev libgl1-mesa-dev
 ```
 
-Running Kitilix requires an Xorg session with working OpenGL. The build uses
-shaders, the symbols font, and `kitten` from the same official Kitty release.
-Manage system packages through your distribution.
+Per l’avvio serve una sessione Xorg con OpenGL funzionante. La
+compilazione usa gli shader, il font dei simboli e `kitten` della stessa
+release ufficiale. I pacchetti di sistema vanno gestiti separatamente.
 
-## Interface
+## Interfaccia
 
-Hover over an icon to see what it does. The first three toolbar buttons are
-**Thumbnails**, **New tab**, and **Layouts**. The remaining buttons open a
-terminal, split a pane in either direction, close a pane, maximize or restore
-a pane, save the layout, and open preferences. The **× at the far right**
-closes the active tab and its panes.
+Passa il mouse sulle icone per leggere l'azione. Da sinistra trovi
+**Miniature**, **Nuova scheda** e **Disposizioni**. Seguono Nuovo terminale,
+i due comandi di suddivisione, Chiudi pannello, Massimizza o ripristina
+pannello, Salva layout e Preferenze. La **× all’estrema destra** chiude
+la scheda attiva con i suoi pannelli.
 
-- **Splits and layouts.** Drag the divider between two panes to resize them.
-  The layout menu offers Splits, Side by side, Stacked vertically, Grid, and
-  Active pane only. Four panes form a 2×2 grid. Changing the layout keeps the
-  sessions running.
-- **Tabs and panes.** Click a tab to activate it, double-click to rename it,
-  or drag it on the tab bar to reorder it. Drag a pane's title bar onto
-  another pane or onto a target tab to move it. Use `Ctrl+Shift+F` and
-  `Ctrl+Shift+B` to move panes with the keyboard. Use `Ctrl+Shift+Left`
-  and `Ctrl+Shift+Right` to switch tabs.
-- **Sidebar.** Each tab has a clickable thumbnail showing all its panes,
-  including inactive tabs. The sidebar also shows the title, process,
-  and working directory when Kitty can detect them. Scroll for more tabs and
-  choose **Refresh thumbnails** to capture new snapshots.
-- **Preferences.** Adjust font size for the current window, toggle layout
-  restoration, and edit or reload `kitty.conf`. Set `font_size` in that
-  file to keep a font size across launches.
-- **Input and shells.** `Ctrl+Shift+C` copies a selection and
-  `Ctrl+Shift+V` pastes. Kitty uses your login shell. You can set
-  `shell fish` or `shell /bin/bash` in `kitty.conf`.
+- **Suddivisioni e disposizioni.** Trascina il separatore di due pannelli.
+  Il pulsante delle disposizioni offre Suddivisioni, Affiancati,
+  Sovrapposti, Griglia e Un solo pannello. Con quattro pannelli la griglia
+  ha due righe e due colonne. Cambiare disposizione mantiene le sessioni.
+- **Schede e pannelli.** Clicca una scheda per attivarla, fai doppio clic
+  per rinominarla e trascinala sulla barra per riordinarla. Trascina
+  l'intestazione di un pannello su un altro pannello o sulla scheda di
+  destinazione. Per spostarlo da tastiera, usa `Ctrl+Shift+F` /
+  `Ctrl+Shift+B`. `Ctrl+Shift+←` / `Ctrl+Shift+→` cambiano scheda.
+- **Sidebar.** Il pulsante mostra una miniatura cliccabile per ogni
+  scheda, con tutti i suoi pannelli. La sidebar mostra anche titolo,
+  processo e directory dove disponibili. Le miniature
+  vengono acquisite anche per le schede inattive. Usa la rotellina per
+  raggiungere le altre e **Aggiorna miniature** per acquisirle di nuovo.
+- **Preferenze.** Cambia la dimensione del carattere per la finestra
+  corrente, abilita il ripristino all'avvio, modifica o ricarica
+  `kitty.conf`. Per impostare una dimensione permanente usa `font_size`
+  in quel file.
+- **Input e shell.** `Ctrl+Shift+C` copia la selezione e
+  `Ctrl+Shift+V` incolla. Kitty usa la shell dell'utente. Puoi scegliere
+  esplicitamente `shell fish` o `shell /bin/bash` in `kitty.conf`.
 
-## Configuration and layout restoration
+## Configurazione e ripristino
 
-Kitilix reads your `kitty.conf` after the bundled defaults. **Save layout**
-records the current window's tabs, names, pane layouts and proportions, active
-pane, and detected local working directories. The next launch opens **new
-shells**. Running processes, shell variables, scrollback, and images end with
-their sessions. Missing working directories fall back to your home directory.
+`~/.config/kitilix/` contiene `kitty.conf`, `preferences.json` e
+`layout.json` quando salvi. Si applica `XDG_CONFIG_HOME`, se impostata.
+`kitty.conf` viene letto dopo i valori predefiniti del progetto.
 
-## Graphics and testing
+**Salva layout** salva le schede della finestra corrente, i loro nomi,
+le disposizioni e le proporzioni, il pannello attivo e le directory
+locali rilevate. All'avvio successivo vengono aperte **nuove shell**.
+Processi in esecuzione, variabili della shell, scrollback e immagini
+precedenti terminano con la sessione. Le directory che non esistono più
+vengono sostituite dalla home.
 
-Inside Kitilix, run `kitten icat image.png` or `kitten icat image.jpg`.
-Use `kitten icat --align left image.png` to keep images visible when you
-narrow a pane. Images follow Kitty's positioning and scrollback rules.
-Images anchored at columns beyond the current pane width can be clipped.
+## Immagini e collaudo
+
+Dentro Kitilix esegui `kitten icat immagine.png` oppure
+`kitten icat immagine.jpg`. Per mantenere le immagini visibili anche
+quando restringi un pannello usa `kitten icat --align left immagine.png`.
+Le immagini seguono le normali regole di posizionamento e scrollback
+di Kitty. Un'immagine ancorata a colonne che escono dal pannello può
+essere tagliata mentre il pannello è stretto.
 
 ```bash
 ./tests/run-x11.sh
@@ -117,28 +128,33 @@ XDG_DATA_HOME="$PWD/.build/install-test" ./install.sh
 TMPDIR="$PWD/.build/tmp" xvfb-run -a python3 tests/benchmark.py
 ```
 
-The tests require `xvfb`, `xauth`, `xdotool`, `xclip`, and
-`python3-pil`. They build Kitilix and use real X11 input and screenshots on
-an isolated display. The `images` test measures PNG and JPEG pixels after
-resize, splits, tab changes, and scrolling. It also checks thumbnails for
-active and inactive tabs. The full suite tests `fish` when available. Test
-outputs stay in `.build/`.
+Il collaudo richiede `xvfb`, `xauth`, `xdotool`, `xclip` e
+`python3-pil`. Compila Kitilix, apre un display X11 isolato e usa input
+X11 e screenshot reali. La modalità `images` verifica i pixel di PNG e
+JPEG dopo resize, split, cambio scheda e scroll, oltre alle miniature delle
+schede attiva e inattiva.
+`fish`, se disponibile, viene provata nel test completo.
+I file del collaudo restano in `.build/`.
 
-The benchmark compares Kitty 0.51.0 against Kitilix launched via `run.sh`.
-Both engines use the same compiler flags. It measures the median time until
-X11 maps the first window, the main process's proportional set size (PSS),
-and idle CPU usage. Across five measured Xvfb launches on Mint 22.3, the
-medians were 419 ms and 98.7 MiB for Kitty and 491 ms and 98.4 MiB for
-Kitilix. The two-second idle samples recorded zero CPU ticks. To repeat the
-benchmark on your current X11 display, run `python3 tests/benchmark.py`.
+Il benchmark confronta Kitty 0.51.0 con Kitilix avviato tramite
+`run.sh`, compilati con gli stessi flag. Misura la mediana del tempo
+fino alla prima finestra X11 mappata, la memoria PSS del processo
+principale e la sua CPU a riposo.
+Su Mint 22.3 con Xvfb, in cinque avvii misurati per variante, le mediane
+sono state 419 ms e 98,7 MiB per Kitty, 491 ms e 98,4 MiB per Kitilix.
+Nessun tick CPU è stato rilevato nell'intervallo a riposo di 2 secondi.
+Per misurare sul display X11 corrente,
+esegui `python3 tests/benchmark.py` durante una sessione inattiva.
 
-## License
+## Licenza
 
-Kitilix code is GPL-3.0-only. The patches apply to the GPLv3
-[Kitty 0.51.0 source release](https://github.com/kovidgoyal/kitty/releases/tag/v0.51.0).
-Symbols Nerd Font Mono retains its [MIT license](packaging/LICENSE.symbols).
-The executable includes Python's license notices. The repository provides
-the changes and scripts needed to rebuild the binaries.
+GPL-3.0-only per il codice Kitilix. La patch si applica al sorgente Kitty
+GPLv3 della [release 0.51.0](https://github.com/kovidgoyal/kitty/releases/tag/v0.51.0).
+Il font Symbols Nerd Font Mono conserva la propria licenza MIT
+in [LICENSE.symbols](packaging/LICENSE.symbols).
+L'eseguibile include gli avvisi di licenza di Python.
+Il repository contiene il sorgente delle modifiche e gli script per
+riprodurre la build.
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for the scope of the fork and
-[AGENTS.md](AGENTS.md) for the development workflow.
+Vedi [ARCHITECTURE.md](ARCHITECTURE.md) per i confini della patch e
+[AGENTS.md](AGENTS.md) per il flusso di sviluppo.

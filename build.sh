@@ -8,14 +8,14 @@ case "${1:-kitilix}" in
     kitilix) engine_link=.build/engine; patches=(patches/kitty.patch patches/kitty-x11.patch) ;;
     --upstream) engine_link=.build/engine-upstream; patches=() ;;
     --portable) engine_link=.build/engine-portable; patches=(patches/kitty.patch patches/kitty-x11.patch); profile=portable ;;
-    *) printf 'Usage: %s [--upstream|--portable]\n' "${0##*/}" >&2; exit 2 ;;
+    *) printf 'Uso: %s [--upstream|--portable]\n' "${0##*/}" >&2; exit 2 ;;
 esac
 
 version=0.51.0
 case "$(uname -m)" in
     x86_64) arch=x86_64; binary_hash=c285daaf1b699997614939c8d1cd92dd8b99302ff12f18efcc3f69382aa72b1d ;;
     aarch64) arch=arm64; binary_hash=2a3eab469c37b548c5ceecff4b500a5b6b5c50f99cc17e0213e06a4c9662d31a ;;
-    *) printf 'Unsupported Linux architecture.\n' >&2; exit 1 ;;
+    *) printf 'Architettura Linux non supportata.\n' >&2; exit 1 ;;
 esac
 
 mkdir -p .build/downloads

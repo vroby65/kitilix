@@ -82,8 +82,8 @@ def main():
                 result = sample(label, launcher, base)
                 if cycle:
                     samples[label].append(result)
-        print(f"{RUNS} samples per variant after one warm-up launch")
-        print("Variant       Startup (ms)     PSS (MiB)       Idle CPU (%)")
+        print(f"{RUNS} campioni per variante, un avvio iniziale escluso")
+        print("Variante      Apertura (ms)    PSS (MiB)       CPU inattiva (%)")
         for label, values in samples.items():
             opening, memory, cpu = map(statistics.median, zip(*values))
             print(f"{label:<12}  {opening:>11.1f}      {memory:>9.1f}            {cpu:>7.2f}")

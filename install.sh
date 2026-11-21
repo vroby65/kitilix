@@ -25,4 +25,4 @@ Path(output).write_text(Path(template).read_text().replace("Exec=kitilix\n", f'E
 PY
 install -m 644 "$stage/kitilix.desktop" "$data/applications/kitilix.desktop"
 install -m 644 packaging/kitilix.png "$data/icons/hicolor/128x128/apps/kitilix.png"
-printf 'Kitilix installed. Launch it from the menu or run %s/kitilix\n' "$app"
+printf 'Kitilix installato. Avvio da menu o da %s/kitilix\n' "$app"

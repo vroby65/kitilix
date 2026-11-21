@@ -53,7 +53,7 @@ class App:
 
     def __enter__(self):
         try:
-            socket = wait_for(self.find_socket, "Test socket did not appear")
+            socket = wait_for(self.find_socket, "Socket del test assente")
             self.engine_pid = int(socket.name.rpartition("-")[2])
             self.address = f"unix:{socket}"
             self.wid = command("xdotool", "search", "--sync", "--onlyvisible", "--pid",
@@ -62,10 +62,10 @@ class App:
                 proc = Path("/proc") / str(self.engine_pid)
                 engine = (proc / "exe").readlink().parents[2]
                 self.runtime = engine.parent
-                assert self.runtime.stat().st_mode & 0o777 == 0o700, "Private temporary runtime"
-                assert not (engine / "kitty/glfw-wayland.so").exists(), "X11-only runtime"
+                assert self.runtime.stat().st_mode & 0o777 == 0o700, "Runtime temporaneo privato"
+                assert not (engine / "kitty/glfw-wayland.so").exists(), "Runtime esclusivamente X11"
                 python_lib = engine / "python/lib/libpython3.12.so.1.0"
-                assert str(python_lib) in (proc / "maps").read_text(), "Bundled Python interpreter"
+                assert str(python_lib) in (proc / "maps").read_text(), "Interprete Python incorporato"
             self.x("windowfocus", self.wid)
             self.measure_cells()
             return self
@@ -95,12 +95,12 @@ class App:
             print(self.log.read_text(), file=sys.stderr)
         log = self.log.read_text()
         if exc is None and self.runtime:
-            assert not self.runtime.exists(), "Bundled runtime cleanup"
+            assert not self.runtime.exists(), "Pulizia del runtime incorporato"
         if exc is None and "Traceback (most recent call last)" in log:
             raise AssertionError(log)
 
     def measure_cells(self):
-        pane = wait_for(self.active_pane, "No active terminal")
+        pane = wait_for(self.active_pane, "Terminale attivo assente")
         with self.shot("measure", pane["id"]) as img:
             self.cw = img.width // pane["columns"]
             self.ch = img.height // pane["lines"]
@@ -153,7 +153,7 @@ class App:
 
     def pane_count(self, count):
         return wait_for(lambda: (tab := self.active_tab()) and len(tab["windows"]) == count and tab,
-                        f"Expected {count} panes")
+                        f"Attesi {count} pannelli")
 
     def layout(self, key, expected):
         self.toolbar(2)
@@ -180,7 +180,7 @@ def neighbors(tab):
 
 
 def check_gui(base):
-    directory = base / "directory with spaces"
+    directory = base / "cartella con spazi"
     directory.mkdir()
     with App(base, str(directory)) as app:
         first = app.active_pane()
@@ -197,8 +197,8 @@ def check_gui(base):
         before = [p["columns"] for p in pair["windows"]]
         width, height = app.size()
         app.drag(width // 2, height // 2, width // 2 + 100, height // 2)
-        wait_for(lambda: [p["columns"] for p in app.active_tab()["windows"]] != before, "Drag the divider")
-        print("OK directory startup, icons, vertical divider, and mouse resizing")
+        wait_for(lambda: [p["columns"] for p in app.active_tab()["windows"]] != before, "Drag del separatore")
+        print("OK avvio in directory, icone, split verticale e resize col mouse")
 
         app.toolbar(5)
         triple = app.pane_count(3)
@@ -216,87 +216,87 @@ def check_gui(base):
         vertical = app.layout("v", "vertical")
         assert len({p["columns"] for p in vertical["windows"]}) == 1
         app.toolbar(7)
-        wait_for(lambda: app.active_tab()["layout"] == "stack", "Maximize a pane")
+        wait_for(lambda: app.active_tab()["layout"] == "stack", "Massimizzazione del pannello")
         app.toolbar(7)
-        wait_for(lambda: app.active_tab()["layout"] == "vertical", "Restore after zoom")
+        wait_for(lambda: app.active_tab()["layout"] == "vertical", "Ripristino dopo zoom")
         splits = app.layout("s", "splits")
         assert pane_pids(splits) == pids
         baseline_dimensions = [(p["columns"], p["lines"]) for p in splits["windows"]]
-        print("OK 2×2 grid, side-by-side and stacked layouts, zoom retains the PTYs")
+        print("OK griglia 2×2, affiancati, sovrapposti e zoom con le stesse PTY")
 
         original = neighbors(splits)
         app.key("ctrl+shift+f")
         moved = wait_for(
             lambda: (t := app.active_tab()) and neighbors(t) != original and t,
-            "Native pane movement",
+            "Spostamento nativo del pannello",
         )
         assert pane_pids(moved) == pids
         # A second movement in the opposite direction returns the same topology.
         app.key("ctrl+shift+b")
-        wait_for(lambda: neighbors(app.active_tab()) == original, "Reverse pane reordering")
+        wait_for(lambda: neighbors(app.active_tab()) == original, "Riordino inverso del pannello")
 
         app.toolbar(1)
-        wait_for(lambda: len(app.tabs()) == 2, "New tab")
+        wait_for(lambda: len(app.tabs()) == 2, "Nuova scheda")
         app.key("ctrl+alt+shift+t")
-        wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Tab title editor")
+        wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Editor del nome della scheda")
         app.key("ctrl+u")
-        app.type("Work")
+        app.type("Lavoro")
         app.key("Return")
-        wait_for(lambda: app.active_tab()["title"] == "Work", "Rename a tab")
+        wait_for(lambda: app.active_tab()["title"] == "Lavoro", "Rinomina scheda")
         second = app.active_pane()["id"]
 
         app.toolbar(0)
-        wait_for(lambda: app.preferences.is_file() and json.loads(app.preferences.read_text())["sidebar"], "Sidebar visible")
+        wait_for(lambda: app.preferences.is_file() and json.loads(app.preferences.read_text())["sidebar"], "Sidebar visibile")
         app.click(app.cw * 3, app.ch * 5)
-        wait_for(lambda: app.active_tab()["id"] != 2, "Switch tabs from the sidebar")
+        wait_for(lambda: app.active_tab()["id"] != 2, "Cambio sessione dalla sidebar")
         app.key("ctrl+shift+Right")
-        wait_for(lambda: app.active_tab()["title"] == "Work", "Quick tab switch")
+        wait_for(lambda: app.active_tab()["title"] == "Lavoro", "Cambio rapido di scheda")
         app.toolbar(0)
-        wait_for(lambda: not json.loads(app.preferences.read_text())["sidebar"], "Sidebar hidden")
-        print("OK pane movement, tabs, renaming, and sidebar selection")
+        wait_for(lambda: not json.loads(app.preferences.read_text())["sidebar"], "Sidebar nascosta")
+        print("OK spostamento pannelli, schede, rinomina e selezione dalla sidebar")
 
         columns = app.active_pane()["columns"]
         app.toolbar(9)
-        wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Preferences menu")
+        wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Menu Preferenze")
         app.key("a")
         wait_for(lambda: (t := app.active_tab()) and len(t["windows"]) == 1 and
-                 t["windows"][0]["columns"] < columns, "Increase font size from Preferences")
+                 t["windows"][0]["columns"] < columns, "Aumento carattere dalle Preferenze")
         app.measure_cells()
         app.toolbar(9)
-        wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Menu for resetting the font size")
+        wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Menu per il ripristino del carattere")
         app.key("r")
         wait_for(lambda: (t := app.active_tab()) and len(t["windows"]) == 1 and
-                 t["windows"][0]["columns"] == columns, "Reset font size from Preferences")
+                 t["windows"][0]["columns"] == columns, "Ripristino carattere dalle Preferenze")
         app.measure_cells()
         app.toolbar(9)
-        wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Layout restoration menu")
+        wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Menu per il ripristino del layout")
         app.key("l")
-        wait_for(lambda: not json.loads(app.preferences.read_text())["restore"], "Disable restoration")
+        wait_for(lambda: not json.loads(app.preferences.read_text())["restore"], "Disabilita ripristino")
         app.toolbar(9)
-        wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Preferences reopened")
+        wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Menu Preferenze riaperto")
         app.key("l")
-        wait_for(lambda: json.loads(app.preferences.read_text())["restore"], "Re-enable restoration")
+        wait_for(lambda: json.loads(app.preferences.read_text())["restore"], "Riabilita ripristino")
 
         app.type("cd -- " + shlex.quote(str(base)))
         app.key("Return")
-        wait_for(lambda: app.active_pane()["cwd"] == str(base), "Real keyboard input and working directory")
+        wait_for(lambda: app.active_pane()["cwd"] == str(base), "Input reale da tastiera e cwd")
         app.type("printf 'PASTE-%s\\n' ")
-        subprocess.run(("xclip", "-silent", "-selection", "clipboard"), input=b"VERIFIED", check=True, timeout=5, stderr=subprocess.DEVNULL)
+        subprocess.run(("xclip", "-silent", "-selection", "clipboard"), input=b"VERIFICATO", check=True, timeout=5, stderr=subprocess.DEVNULL)
         app.key("ctrl+shift+v", "Return")
-        wait_for(lambda: "PASTE-VERIFIED" in app.contents(second), "Paste from the X11 clipboard")
-        app.send("clear; printf '\\nCOPY-VERIFIED\\n'\r")
-        wait_for(lambda: "COPY-VERIFIED" in app.contents(second).splitlines(), "Line ready to select")
-        with app.shot("before-copy"):
+        wait_for(lambda: "PASTE-VERIFICATO" in app.contents(second), "Incolla dalla clipboard X11")
+        app.send("clear; printf '\\nCOPY-VERIFICATO\\n'\r")
+        wait_for(lambda: "COPY-VERIFICATO" in app.contents(second).splitlines(), "Riga pronta da selezionare")
+        with app.shot("prima-di-copia"):
             pass
         # With padding of 5 pt, the string begins in the second visible terminal row.
         app.drag(app.cw, app.ch * 4, app.cw * 18, app.ch * 4)
         selection = app.remote("get-text", "--extent=selection")
-        assert "COPY-VERIFIED" in selection, repr(selection)
+        assert "COPY-VERIFICATO" in selection, repr(selection)
         app.key("ctrl+shift+c")
-        assert b"COPY-VERIFIED" in command("xclip", "-o", "-selection", "clipboard")
+        assert b"COPY-VERIFICATO" in command("xclip", "-o", "-selection", "clipboard")
         app.toolbar(8)
-        saved = wait_for(lambda: app.saved.is_file() and json.loads(app.saved.read_text()), "Layout written")
-        assert len(saved["tabs"]) == 2 and saved["tabs"][1]["name"] == "Work"
+        saved = wait_for(lambda: app.saved.is_file() and json.loads(app.saved.read_text()), "Layout scritto")
+        assert len(saved["tabs"]) == 2 and saved["tabs"][1]["name"] == "Lavoro"
         app.toolbar(4)
         app.pane_count(2)
         app.toolbar(6)
@@ -304,29 +304,29 @@ def check_gui(base):
         assert len(app.tabs()) == 2
         app.toolbar(4)
         app.pane_count(2)
-        with app.shot("close-tab-button-on-right") as img:
+        with app.shot("comando-chiudi-a-destra") as img:
             assert len(img.crop((img.width - app.cw * 3, 0, img.width, app.ch)).getcolors(1000)) > 5
         app.click(app.size()[0] - app.cw * 3 // 2, app.ch // 2)
-        wait_for(lambda: len(app.tabs()) == 1, "Close a tab with two panes")
-        print("OK preferences, input, X11 clipboard, save, and close")
+        wait_for(lambda: len(app.tabs()) == 1, "Chiusura della scheda con due pannelli")
+        print("OK preferenze, input, clipboard X11, salvataggio e chiusura")
 
     with App(base) as app:
         tabs = app.tabs()
-        assert len(tabs) == 2 and tabs[1]["title"] == "Work" and tabs[1]["is_active"]
+        assert len(tabs) == 2 and tabs[1]["title"] == "Lavoro" and tabs[1]["is_active"]
         assert [(p["columns"], p["lines"]) for p in tabs[0]["windows"]] == baseline_dimensions
         assert app.active_pane()["cwd"] == str(base)
         assert not set(pane_pids(tabs[0]).values()) & set(pids.values())
-        assert "COPY-VERIFIED" not in app.contents(app.active_pane()["id"], history=True)
+        assert "COPY-VERIFICATO" not in app.contents(app.active_pane()["id"], history=True)
 
     if shutil.which("fish"):
         with App(base, "--fresh", str(directory), shell="fish --no-config") as app:
             pane = app.active_pane()
             assert pane["cwd"] == str(directory)
-            wait_for(lambda: "fish" in app.active_pane()["cmdline"][0], "Start fish")
-            app.type("printf 'FISH-%s\\n' working")
+            wait_for(lambda: "fish" in app.active_pane()["cmdline"][0], "Avvio di fish")
+            app.type("printf 'FISH-%s\\n' funzionante")
             app.key("Return")
-            wait_for(lambda: "FISH-working" in app.contents(pane["id"]).splitlines(), "Run a command in fish")
-    print("OK restore layout, proportions, and working directory with new shells and --fresh")
+            wait_for(lambda: "FISH-funzionante" in app.contents(pane["id"]).splitlines(), "Esecuzione in fish")
+    print("OK riapertura con layout, proporzioni e cwd, nuove shell e --fresh")
     check_drag(base)
     check_config(base)
 
@@ -339,19 +339,19 @@ def check_drag(base):
         first_tab = pair["id"]
         source = pair["windows"][0]
         app.toolbar(1)
-        wait_for(lambda: len(app.tabs()) == 2, "Second tab for drag and drop")
+        wait_for(lambda: len(app.tabs()) == 2, "Seconda scheda per il drag")
         app.remote("set-tab-title", "Beta")
         second_tab = app.active_tab()["id"]
         app.key("ctrl+shift+Left")
-        wait_for(lambda: app.active_tab()["id"] == first_tab, "Source tab for drag and drop")
+        wait_for(lambda: app.active_tab()["id"] == first_tab, "Scheda di partenza per il drag")
 
         tab_row = app.ch + app.ch // 2
         app.drag(app.cw * 6, app.ch * 2 + app.ch // 2, app.cw * 15, tab_row)
         wait_for(lambda: any(t["id"] == second_tab and pane_pids(t).get(source["id"]) == source["pid"]
-                             for t in app.tabs()), "Transfer pane by dragging")
+                             for t in app.tabs()), "Trasferimento del pannello tramite drag")
         app.drag(app.cw * 15, tab_row, app.cw // 2, tab_row)
-        wait_for(lambda: [t["id"] for t in app.tabs()] == [second_tab, first_tab], "Reorder tabs by dragging")
-    print("OK drag a pane between tabs and reorder tabs")
+        wait_for(lambda: [t["id"] for t in app.tabs()] == [second_tab, first_tab], "Riordino schede tramite drag")
+    print("OK trascinamento di un pannello tra schede e riordino delle schede")
 
 
 
@@ -361,15 +361,15 @@ def check_config(base):
         conf.write_text(conf.read_text() + "font_size 12.0\neditor /usr/bin/nano\n")
         columns = app.active_pane()["columns"]
         app.toolbar(9)
-        wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Configuration reload menu")
+        wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Menu per la ricarica")
         app.key("n")
         wait_for(lambda: (t := app.active_tab()) and len(t["windows"]) == 1 and
-                 t["windows"][0]["columns"] < columns, "Reload configuration")
+                 t["windows"][0]["columns"] < columns, "Ricarica della configurazione")
         app.measure_cells()
 
         if Path("/usr/bin/nano").is_file():
             app.toolbar(9)
-            wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Configuration editor menu")
+            wait_for(lambda: len(app.active_tab()["windows"]) == 2, "Menu per l’editor")
             app.key("c")
 
             def editor_window():
@@ -380,10 +380,10 @@ def check_config(base):
                                 return pane["id"]
                 return None
 
-            editor_id = wait_for(editor_window, "Open the actual user config in an editor")
+            editor_id = wait_for(editor_window, "Editor reale sulla configurazione utente")
             app.remote("send-text", f"--match=id:{editor_id}", "\x18")
-            wait_for(lambda: not editor_window(), "Close the editor")
-    print("OK reload configuration and open the editor when present")
+            wait_for(lambda: not editor_window(), "Chiusura dell'editor")
+    print("OK ricarica della configurazione e apertura dell’editor se disponibile")
 
 def fixture(path, color):
     image = Image.new("RGB", (84, 48), color)
@@ -401,79 +401,79 @@ def image_colors(img):
 
 
 def check_images(base):
-    png = base / "image.png"
-    jpeg = base / "image.jpg"
+    png = base / "immagine.png"
+    jpeg = base / "immagine.jpg"
     fixture(png, (244, 20, 25))
     fixture(jpeg, (16, 234, 31))
     with App(base, "--fresh", str(base)) as app:
         pane = app.active_pane()
         window_id = pane["id"]
-        app.send(f"clear; kitten icat --align left {shlex.quote(png.name)}; kitten icat --align left {shlex.quote(jpeg.name)}; echo IMAGES-READY\r")
-        wait_for(lambda: "IMAGES-READY" in app.contents(window_id).splitlines(), "Run kitten icat")
+        app.send(f"clear; kitten icat --align left {shlex.quote(png.name)}; kitten icat --align left {shlex.quote(jpeg.name)}; echo IMMAGINI-PRONTE\r")
+        wait_for(lambda: "IMMAGINI-PRONTE" in app.contents(window_id).splitlines(), "Esecuzione di kitten icat")
 
         def pixels(stage):
             with app.shot(stage, window_id) as img:
                 return min(image_colors(img)) > 350
 
-        wait_for(lambda: pixels("png-and-jpeg"), "PNG and JPEG pixels")
+        wait_for(lambda: pixels("png-e-jpeg"), "Pixel PNG e JPEG")
         app.x("windowsize", "--sync", app.wid, 1090, 730)
-        wait_for(lambda: pixels("after-resize"), "Pixels after resizing the window")
+        wait_for(lambda: pixels("dopo-resize"), "Pixel dopo il resize della finestra")
         app.toolbar(4)
         app.pane_count(2)
         app.layout("g", "grid")
-        wait_for(lambda: pixels("after-layout"), "Images survive splits and layout changes")
-        app.remote("set-tab-title", "PNG and JPEG")
+        wait_for(lambda: pixels("dopo-layout"), "Immagini conservate durante split e cambio layout")
+        app.remote("set-tab-title", "PNG e JPEG")
         app.toolbar(1)
-        wait_for(lambda: len(app.tabs()) == 2, "New tab over the image tab")
+        wait_for(lambda: len(app.tabs()) == 2, "Scheda sopra la scheda immagini")
         second = app.active_pane()["id"]
-        app.remote("set-tab-title", "Second tab")
-        app.send("clear; kitten icat --align left image.jpg; echo SECOND-TAB\r", second)
-        wait_for(lambda: "SECOND-TAB" in app.contents(second).splitlines(), "Image in the second tab")
+        app.remote("set-tab-title", "Seconda scheda")
+        app.send("clear; kitten icat --align left immagine.jpg; echo SECONDA-SCHEDA\r", second)
+        wait_for(lambda: "SECONDA-SCHEDA" in app.contents(second).splitlines(), "Immagine seconda scheda")
         active = app.active_tab()["id"]
         processes = [pane_pids(tab) for tab in app.tabs()]
         app.toolbar(0)
-        wait_for(lambda: app.preferences.is_file(), "Image sidebar")
+        wait_for(lambda: app.preferences.is_file(), "Sidebar delle immagini")
 
         def previews():
-            with app.shot("tab-thumbnails") as img:
+            with app.shot("miniature-schede") as img:
                 first = img.crop((0, app.ch * 7, app.cw * 29, app.ch * 13))
                 second = img.crop((0, app.ch * 17, app.cw * 29, app.ch * 23))
                 return min(image_colors(first)) > 12 and image_colors(second)[1] > 12 and image_colors(second)[0] < 10
 
-        wait_for(previews, "Two distinct thumbnails including the inactive tab")
+        wait_for(previews, "Due miniature distinte, inclusa la scheda inattiva")
         assert app.active_tab()["id"] == active
         assert [pane_pids(tab) for tab in app.tabs()] == processes
-        app.send("kitten icat --clear; clear; kitten icat --align left image.png; echo UPDATED\r", second)
-        wait_for(lambda: "UPDATED" in app.contents(second).splitlines(), "Content changed")
+        app.send("kitten icat --clear; clear; kitten icat --align left immagine.png; echo AGGIORNATA\r", second)
+        wait_for(lambda: "AGGIORNATA" in app.contents(second).splitlines(), "Contenuto cambiato")
         app.click(app.cw * 6, app.ch * 3 + app.ch // 2)
 
         def refreshed():
-            with app.shot("refreshed-thumbnail") as img:
+            with app.shot("miniatura-aggiornata") as img:
                 red, green = image_colors(img.crop((0, app.ch * 17, app.cw * 29, app.ch * 23)))
                 return red > 12 and green < 10
 
-        wait_for(refreshed, "Thumbnails refresh with new pixels")
+        wait_for(refreshed, "Ricarica delle miniature con nuovi pixel")
         app.click(app.cw * 10, app.ch * 8)
-        wait_for(lambda: app.active_tab()["id"] != active, "Select a tab from its thumbnail")
+        wait_for(lambda: app.active_tab()["id"] != active, "Selezione dalla miniatura")
         app.toolbar(0)
-        wait_for(lambda: pixels("after-tab-switch"), "Images survive tab changes")
+        wait_for(lambda: pixels("dopo-scheda"), "Immagini conservate dopo il cambio scheda")
 
-        app.send("for i in {1..40}; do echo line-$i; done\r", window_id)
-        wait_for(lambda: "line-40" in app.contents(window_id), "Fill scrollback")
-        assert not pixels("before-scroll")
+        app.send("for i in {1..40}; do echo riga-$i; done\r", window_id)
+        wait_for(lambda: "riga-40" in app.contents(window_id), "Riempimento scrollback")
+        assert not pixels("prima-di-scroll")
         app.x("mousemove", "--window", app.wid, app.cw * 18, app.ch * 8, "click", "--repeat", 14, 4)
-        wait_for(lambda: pixels("after-scroll"), "Images return when scrolling up with the wheel")
+        wait_for(lambda: pixels("dopo-scroll"), "Immagini recuperate nello scrollback con la rotellina")
         for count in (3, 4):
             app.toolbar(1)
-            wait_for(lambda: len(app.tabs()) == count, f"Tab {count} for scrolling")
+            wait_for(lambda: len(app.tabs()) == count, f"Scheda {count} per lo scroll")
         last_tab = app.active_tab()["id"]
         app.key("ctrl+shift+Left")
         app.toolbar(0)
-        wait_for(lambda: json.loads(app.preferences.read_text())["sidebar"], "Thumbnails for four tabs")
+        wait_for(lambda: json.loads(app.preferences.read_text())["sidebar"], "Miniature delle quattro schede")
         app.click(app.cw * 10, app.ch * 8, button=5)
         app.click(app.cw * 10, app.ch * 28)
-        wait_for(lambda: app.active_tab()["id"] == last_tab, "Select the fourth thumbnail after scrolling")
-        print("OK PNG, JPEG, resize, splits, grid, scrolling, and refreshing real tab thumbnails")
+        wait_for(lambda: app.active_tab()["id"] == last_tab, "Selezione della quarta miniatura dopo la rotellina")
+        print("OK PNG, JPEG, resize, split, griglia, scroll e miniature reali delle schede con aggiornamento")
 
 
 if __name__ == "__main__":
@@ -485,4 +485,4 @@ if __name__ == "__main__":
         try:
             check(base)
         finally:
-            print(f"Logs and screenshots: {base}")
+            print(f"Log e screenshot: {base}")

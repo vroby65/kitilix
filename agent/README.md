@@ -1,25 +1,25 @@
-# Maintenance guide
+# Guida alla manutenzione
 
-`run.sh` reads `packaging/kitilix.conf` followed by the personal file in
-`XDG_CONFIG_HOME/kitilix` or `~/.config/kitilix`. It starts the Kitty launcher
-built by `build.sh` and puts the matching `kitten` on child processes' PATH.
-`package.sh` uses a portable engine build to create `dist/kitilix`.
-`install.sh` copies the ELF and registers its desktop menu entry.
+`run.sh` applica `packaging/kitilix.conf` e poi il file personale sotto
+`XDG_CONFIG_HOME/kitilix` o `~/.config/kitilix`. Avvia il launcher Kitty
+compilato da `build.sh` e antepone il relativo `kitten` al PATH dei figli.
+`package.sh` usa una build portatile del motore per creare l’ELF
+`dist/kitilix`. `install.sh` copia quel file e registra la voce di menu.
 
-- Toolbar, selection, previews, menus, and preferences live in
-  `src/kitilix_ui.py`. Refresh on resize, input, or Kitty state changes.
-  Reserve timers for one-shot events.
-- The patch adds native hooks to the release pinned in `build.sh`. Source
-  and binary resources must come from the same release because internal
-  structures and compiled resources may change.
-- `src/kitilix_session.py` opens new local shells using the saved layout.
-  Updates to layouts and preferences write a temporary file in the same
-  directory, then replace the target atomically.
-- Extracted upstream assets and builds stay in `.build/`. Tests isolate
-  XDG data and use a local remote-control socket in a private directory.
-  Remote control is disabled in the standard profile.
+- Toolbar, selezione, anteprima, menu e preferenze sono in
+  `src/kitilix_ui.py`. Il refresh deriva da resize, input e stato di Kitty.
+  Riservare i timer agli eventi a scatto singolo.
+- La patch aggiunge gli hook nativi alla release fissata in `build.sh`.
+  Varianti sorgente e binaria devono provenire dalla stessa release
+  perché le strutture interne e le risorse compilate possono cambiare.
+- `src/kitilix_session.py` riapre shell locali con la disposizione salvata.
+  L'aggiornamento del layout o delle preferenze usa un file temporaneo
+  nella stessa directory, poi una sostituzione atomica.
+- Gli asset upstream estratti e le build stanno in `.build/`.
+  Le prove usano XDG isolati e un socket remoto locale in una directory
+  privata. Il protocollo remoto è disattivato nel profilo ordinario.
 
-## Development checks
+## Verifiche di sviluppo
 
 ```bash
 ./build.sh
@@ -29,13 +29,12 @@ desktop-file-validate packaging/kitilix.desktop
 git diff --check
 ```
 
-For release testing, run `./package.sh` and pass
-`KITILIX_TEST_LAUNCHER="$PWD/dist/kitilix"` to the test runner. It checks the
-bundled Python and cleanup of the extracted runtime. Use an `XDG_DATA_HOME`
-under `.build/` to test installation. For performance testing,
-`python3 tests/benchmark.py` builds the upstream baseline and measures it
-on the same X11 display as Kitilix. Document the display and distinguish
-Xvfb results from hardware GPU results.
-
-Update the README and architecture guide when usage, configuration, upstream
-integration points, or validation commands change.
+Per il collaudo della distribuzione, esegui `./package.sh` e passa
+`KITILIX_TEST_LAUNCHER="$PWD/dist/kitilix"` allo script dei test. Il
+collaudo controlla l’interprete incluso e la rimozione del runtime.
+Usa un `XDG_DATA_HOME` sotto `.build/` per provare l'installazione.
+Per le prestazioni, `python3 tests/benchmark.py` costruisce il riferimento
+upstream e lo misura sulla stessa sessione X11. Aggiorna README e
+ARCHITECTURE quando cambiano uso, configurazione, punto d'integrazione
+o comandi di verifica. Riporta l'ambiente e la differenza tra verifica
+su Xvfb e verifica sulla GPU.

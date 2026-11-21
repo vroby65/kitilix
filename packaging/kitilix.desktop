@@ -1,7 +1,7 @@
 [Desktop Entry]
 Type=Application
 Name=Kitilix
-Comment=Graphical terminal with tabs and panes
+Comment=Terminale grafico con schede e pannelli
 Exec=kitilix
 Icon=kitilix
 Terminal=false

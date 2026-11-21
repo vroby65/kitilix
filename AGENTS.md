@@ -1,14 +1,15 @@
-# Developing Kitilix
+# Sviluppo di Kitilix
 
-Kitilix adds a desktop interface to Kitty. The reference platform is
-Linux Mint MATE on X11. For the architecture and upstream references,
-see [ARCHITECTURE.md](ARCHITECTURE.md). Read [agent/README.md](agent/README.md)
-before modifying the project.
+Kitilix è un fork della sola interfaccia di Kitty, con piattaforma di
+riferimento Linux Mint MATE su X11. L'architettura e le fonti sono in
+[ARCHITECTURE.md](ARCHITECTURE.md).
+Leggi [agent/README.md](agent/README.md) prima di cambiare il progetto.
 
-- Keep project work in the checkout. Preserve the system Kitty and Tilix files.
-- Keep actions, preferences, and persistence in `src/kitilix_*.py`. Update
-  `patches/kitty.patch` when an upstream integration point is needed.
-- Reproduce regressions through the normal entry point. Verify that changes
-  preserve Kitty's rendering, input, and PTYs.
-- Run `./build.sh`, `./tests/run-x11.sh`, and `git diff --check`.
-  Use `./tests/run-x11.sh images` for graphics protocol testing.
+- Lavora nella directory del progetto e preserva i file di Kitty e Tilix
+  installati sul sistema.
+- Concentra le azioni, le preferenze e la persistenza nei moduli `src/kitilix_*.py`.
+  Aggiorna `patches/kitty.patch` quando serve un punto d'integrazione upstream.
+- Per una regressione, riproduci il problema nel percorso di uso reale.
+  Verifica che la modifica mantenga il rendering, l'input e le PTY originali.
+- Esegui `./build.sh`, `./tests/run-x11.sh` e `git diff --check`.
+  Usa `./tests/run-x11.sh images` per il solo protocollo grafico.

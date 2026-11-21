@@ -3,7 +3,7 @@ set -euo pipefail
 root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)
 
 usage() {
-    printf 'Usage: %s [--fresh] [--] [DIRECTORY]\n' "${KITILIX_PROGRAM:-${0##*/}}"
+    printf 'Uso: %s [--fresh] [--] [CARTELLA]\n' "${KITILIX_PROGRAM:-${0##*/}}"
 }
 
 export KITILIX_RESTORE=1
@@ -31,7 +31,7 @@ export KITTY_CONFIG_DIRECTORY="${XDG_CONFIG_HOME:-$HOME/.config}/kitilix"
 export KITTY_CACHE_DIRECTORY="${XDG_CACHE_HOME:-$HOME/.cache}/kitilix"
 mkdir -p -- "$KITTY_CONFIG_DIRECTORY"
 if [[ ! -e $KITTY_CONFIG_DIRECTORY/kitty.conf ]]; then
-    (set -o noclobber; printf '# Personal Kitilix preferences.\n' > "$KITTY_CONFIG_DIRECTORY/kitty.conf") 2>/dev/null ||
+    (set -o noclobber; printf '# Preferenze personali di Kitilix.\n' > "$KITTY_CONFIG_DIRECTORY/kitty.conf") 2>/dev/null ||
         [[ -e $KITTY_CONFIG_DIRECTORY/kitty.conf ]]
 fi
 if [[ ! -e $KITTY_CONFIG_DIRECTORY/kitty.app.png ]]; then

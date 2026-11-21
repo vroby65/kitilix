@@ -16,18 +16,18 @@ from .kitilix_session import LAYOUT, PREFERENCES, panes, preferences, save_layou
 from .rgb import to_color
 
 TOOLBAR = (
-    ("\uf03e", "Show / hide tab thumbnails", "sidebar"),
-    ("\uf24d", "New tab", "tab"),
-    ("\uf00a", "Choose pane layout", "layout"),
-    ("\uf067", "New terminal", "new"),
-    ("\uf0db", "Vertical divider · side-by-side panes", "vertical"),
-    ("⊟", "Horizontal divider · stacked panes", "horizontal"),
-    ("−", "Close pane", "close"),
-    ("\uf2d0", "Maximize / restore pane", "zoom"),
-    ("\uf0c7", "Save layout", "save"),
-    ("⚙︎", "Preferences", "preferences"),
+    ("\uf03e", "Mostra / nascondi le miniature delle schede", "sidebar"),
+    ("\uf24d", "Nuova scheda", "tab"),
+    ("\uf00a", "Scegli disposizione dei pannelli", "layout"),
+    ("\uf067", "Nuovo terminale", "new"),
+    ("\uf0db", "Divisore verticale · pannelli affiancati", "vertical"),
+    ("⊟", "Divisore orizzontale · pannelli sovrapposti", "horizontal"),
+    ("−", "Chiudi pannello", "close"),
+    ("\uf2d0", "Massimizza / ripristina pannello", "zoom"),
+    ("\uf0c7", "Salva layout", "save"),
+    ("⚙︎", "Preferenze", "preferences"),
 )
-CLOSE_TAB = ("×", "Close tab", "close-tab")
+CLOSE_TAB = ("×", "Chiudi scheda", "close-tab")
 
 BASE = 0x222B35
 SIDE = 0x1D2731
@@ -211,8 +211,8 @@ class Chrome:
         home = str(Path.home())
         for row in range(lines):
             draw(s, row, 0, " " * cols, TEXT, SIDE)
-        draw(s, 0, 1, f"Tabs  {len(cards)}", TEAL, SIDE, True)
-        draw(s, 1, 1, "↻  Refresh thumbnails", MUTED, SIDE)
+        draw(s, 0, 1, f"Schede  {len(cards)}", TEAL, SIDE, True)
+        draw(s, 1, 1, "↻  Aggiorna miniature", MUTED, SIDE)
 
         images = []
         visible = cards[self.scroll_offset:self.scroll_offset + capacity]
@@ -228,7 +228,7 @@ class Chrome:
             if not tab.name and title.startswith(("/", "~/")):
                 title = Path(title).name or title
             draw(s, row, 1, f"{self.scroll_offset + index + 1}  {title}", TEXT, bg, True)
-            label = "1 pane" if len(windows) == 1 else f"{len(windows)} panes"
+            label = "1 pannello" if len(windows) == 1 else f"{len(windows)} pannelli"
             if window:
                 process = os.path.basename(window.get_exe_of_child())
                 if process:
@@ -243,9 +243,9 @@ class Chrome:
             if preview := self.previews.get(tab.id):
                 images.append((row + 3, preview))
             elif tab.id not in self.previews:
-                draw(s, row + 3, 1, "Capturing…", MUTED, bg)
+                draw(s, row + 3, 1, "Acquisizione…", MUTED, bg)
             else:
-                draw(s, row + 3, 1, "Preview unavailable", MUTED, bg)
+                draw(s, row + 3, 1, "Anteprima non disponibile", MUTED, bg)
 
         if tuple(images) != self.shown_previews:
             self.shown_previews = tuple(images)
@@ -340,7 +340,7 @@ class Chrome:
             try:
                 write_json(PREFERENCES, {**preferences(), "sidebar": self.show_sidebar})
             except OSError as error:
-                boss.show_error("Kitilix preferences", str(error))
+                boss.show_error("Preferenze di Kitilix", str(error))
         elif action == "focus-tab" and (target := self.manager.tab_for_id(tab_id)):
             self.manager.set_active_tab(target)
         elif action == "preview":
@@ -348,22 +348,22 @@ class Chrome:
             self.invalidate_sidebar()
         elif action == "layout":
             layouts = {"s": "splits", "a": "horizontal", "v": "vertical", "g": "grid", "u": "stack"}
-            boss.choose("Pane layout",
+            boss.choose("Disposizione dei pannelli",
                         lambda key: tab.goto_layout(layouts[key]) if key in layouts else None,
-                        "s:Splits", "a:Arrange side by side", "v:Stack vertically", "g:Grid", "u:Use active pane only")
+                        "s:Suddivisioni", "a:Affiancati", "v:Sovrapposti", "g:Griglia", "u:Un solo pannello")
         elif action == "save":
             try:
                 save_layout(self.manager)
-                self.report(f"Layout saved · {LAYOUT.name}")
+                self.report(f"Layout salvato · {LAYOUT.name}")
             except OSError as error:
-                boss.show_error("Save layout", str(error))
+                boss.show_error("Salvataggio del layout", str(error))
         elif action == "preferences":
             self.open_preferences()
 
     def open_preferences(self):
         boss = get_boss()
         prefs = preferences()
-        restore = "on" if prefs["restore"] else "off"
+        restore = "attivo" if prefs["restore"] else "disattivo"
 
         def selected(key):
             if key in ("a", "d", "r"):
@@ -372,14 +372,14 @@ class Chrome:
             elif key == "l":
                 try:
                     write_json(PREFERENCES, {**prefs, "restore": not prefs["restore"]})
-                    self.report("Restore on startup " + ("disabled" if prefs["restore"] else "enabled"))
+                    self.report("Ripristino all’avvio " + ("disattivato" if prefs["restore"] else "attivato"))
                 except OSError as error:
-                    boss.show_error("Kitilix preferences", str(error))
+                    boss.show_error("Preferenze di Kitilix", str(error))
             elif key == "c":
                 boss.edit_file(defconf)
             elif key == "n":
                 boss.load_config_file()
 
-        boss.choose("Kitilix preferences", selected,
-                    "a:Increase font size", "d:Decrease font size", "r:Reset font size",
-                    f"l:Load layout on startup ({restore})", "c:Edit configuration", "n:Reload configuration")
+        boss.choose("Preferenze di Kitilix", selected,
+                    "a:Aumenta carattere", "d:Diminuisci carattere", "r:Ripristina carattere",
+                    f"l:Ripristino all’avvio ({restore})", "c:Modifica configurazione", "n:Ricarica configurazione")

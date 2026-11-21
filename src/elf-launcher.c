@@ -102,7 +102,7 @@ static int remove_item(const char *path, const struct stat *st, int type, struct
 
 int main(int argc, char **argv) {
     if (argc == 2 && (!strcmp(argv[1], "--help") || !strcmp(argv[1], "-h"))) {
-        puts("Usage: kitilix [--fresh] [--] [DIRECTORY]");
+        puts("Uso: kitilix [--fresh] [--] [CARTELLA]");
         return 0;
     }
 
@@ -112,11 +112,11 @@ int main(int argc, char **argv) {
     char launcher[sizeof(directory) + sizeof("/run.sh")];
     int length = snprintf(directory, sizeof(directory), "%s/kitilix-XXXXXX", tmp);
     if (length < 0 || (size_t)length >= sizeof(directory) - sizeof("/run.sh")) {
-        fputs("Kitilix: temporary path is too long.\n", stderr);
+        fputs("Kitilix: percorso temporaneo troppo lungo.\n", stderr);
         return 1;
     }
     if (!mkdtemp(directory)) {
-        perror("Kitilix: temporary directory");
+        perror("Kitilix: directory temporanea");
         return 1;
     }
 
@@ -134,15 +134,15 @@ int main(int argc, char **argv) {
             setenv("KITILIX_PROGRAM", "kitilix", 1);
             argv[0] = launcher;
             execv(launcher, argv);
-            perror("Kitilix: launch");
+            perror("Kitilix: avvio");
             _exit(127);
         }
         status = pid < 0 ? 1 : wait_for_child(pid);
     } else if (!stop_signal) {
-        fputs("Kitilix: could not extract the runtime.\n", stderr);
+        fputs("Kitilix: estrazione del runtime non riuscita.\n", stderr);
     }
 
     if (nftw(directory, remove_item, 32, FTW_DEPTH | FTW_PHYS) != 0)
-        perror("Kitilix: temporary directory cleanup");
+        perror("Kitilix: pulizia della directory temporanea");
     return stop_signal ? 128 + stop_signal : status;
 }

@@ -1,93 +1,99 @@
-# Kitilix architecture
+# Architettura di Kitilix
 
-Kitilix is based on [Kitty 0.51.0](https://github.com/kovidgoyal/kitty/tree/v0.51.0).
-The distribution's Kitty installation and the user's Kitty profile are
-independent of Kitilix.
+La base è [Kitty 0.51.0](https://github.com/kovidgoyal/kitty/tree/v0.51.0).
+Il terminale della distribuzione e la configurazione di Kitty sono indipendenti
+da Kitilix.
 
-## Approaches considered
+## Soluzioni valutate
 
-| Approach | Integration | Scope |
+| Soluzione | Integrazione | Impatto |
 | --- | --- | --- |
-| GTK4 controller with stock Kitty | Remote control handles windows, tabs, layouts, and focus through separate GTK and Kitty surfaces. | Uses stock Kitty with two windows. |
-| Minimal fork of the Kitty UI | A single GLFW window contains the terminals, tabs, toolbar, and sidebar. | A patch for UI geometry, input, and rendering, plus Python modules. |
+| Controller GTK4 con Kitty originale | Il protocollo remoto controlla finestre, schede, operazioni di layout e focus. GTK e Kitty rimangono superfici distinte. | Nessuna modifica a Kitty, con due finestre separate. |
+| Fork minimo della GUI di Kitty | La stessa finestra GLFW contiene i terminali, le schede, la barra strumenti e la sidebar. | Patch confinata a geometria, input e rendering degli elementi di interfaccia, più un modulo Python. |
 
-Kitty creates its windows through its bundled GLFW. The remote-control
-protocol exchanges commands and metadata. Embedding the Kitty window in
-GTK would require a separate integration surface. On Xorg, reparenting
-would depend on the window manager, focus, and pixel handling.
-[Kitty remote control](https://sw.kovidgoyal.net/kitty/remote-control/)
+Kitty crea le proprie finestre tramite il GLFW incluso nel progetto. Il
+[protocollo remoto](https://sw.kovidgoyal.net/kitty/remote-control/) scambia
+comandi e metadati, senza fornire un widget GTK o una superficie da
+incorporare. Su Xorg il reparenting dipenderebbe dal window manager,
+dal focus e dalla gestione dei pixel.
 
-Kitilix uses the minimal fork. It keeps Kitty's window, PTYs, terminal
-grids, shaders, and graphics protocol. The interface draws extra cells
-through Kitty's compositor. Tab and pane drag operations and layouts use
-Kitty's existing session-management operations.
-[Kitty graphics protocol](https://sw.kovidgoyal.net/kitty/graphics-protocol/)
+Kitilix adotta il fork minimo. La finestra, le PTY, le griglie dei terminali,
+gli shader e il [protocollo grafico](https://sw.kovidgoyal.net/kitty/graphics-protocol/)
+sono quelli upstream. La UI aggiunge celle allo stesso compositing di Kitty.
+Il codice per il drag di schede e pannelli e i layout upstream restano il
+punto d'ingresso per la gestione delle sessioni.
 
-## Upstream sources
+## Sorgenti consultati
 
-- [Tab manager](https://github.com/kovidgoyal/kitty/blob/v0.51.0/kitty/tabs.py),
-  [tab bar](https://github.com/kovidgoyal/kitty/blob/v0.51.0/kitty/tab_bar.py),
-  and [Splits layout](https://github.com/kovidgoyal/kitty/blob/v0.51.0/kitty/layout/splits.py).
-- [Mouse input](https://github.com/kovidgoyal/kitty/blob/v0.51.0/kitty/mouse.c),
-  [window geometry](https://github.com/kovidgoyal/kitty/blob/v0.51.0/kitty/state.c),
-  and [render loop](https://github.com/kovidgoyal/kitty/blob/v0.51.0/kitty/child-monitor.c).
-- [GLFW X11 backend](https://github.com/kovidgoyal/kitty/tree/v0.51.0/glfw),
-  [extensions](https://sw.kovidgoyal.net/kitty/mapping/), and
-  [sessions](https://sw.kovidgoyal.net/kitty/sessions/).
+- [Gestore delle schede](https://github.com/kovidgoyal/kitty/blob/v0.51.0/kitty/tabs.py),
+  [barra delle schede](https://github.com/kovidgoyal/kitty/blob/v0.51.0/kitty/tab_bar.py)
+  e [layout Splits](https://github.com/kovidgoyal/kitty/blob/v0.51.0/kitty/layout/splits.py).
+- [Input del mouse](https://github.com/kovidgoyal/kitty/blob/v0.51.0/kitty/mouse.c),
+  [geometria](https://github.com/kovidgoyal/kitty/blob/v0.51.0/kitty/state.c)
+  e [loop di rendering](https://github.com/kovidgoyal/kitty/blob/v0.51.0/kitty/child-monitor.c).
+- [Backend GLFW X11](https://github.com/kovidgoyal/kitty/tree/v0.51.0/glfw),
+  [estensioni](https://sw.kovidgoyal.net/kitty/mapping/) e
+  [sessioni](https://sw.kovidgoyal.net/kitty/sessions/).
 
-## Components
+## Componenti
 
-- `patches/kitty.patch` adds the toolbar row to the horizontal tab bar,
-  reserves the sidebar region, and routes mouse events for those regions.
-  Tab and pane behavior uses Kitty's actions and layouts. The renderer
-  uses the tab bar's cell API to draw the sidebar.
-- `src/kitilix_ui.py` handles the toolbar, menus, metadata, and sidebar
-  events. `src/kitilix_watch.py` invalidates sidebar metadata when the
-  title, directory, or command changes. The sidebar reads data for visible
-  rows. Tooltips use one-shot timers.
-- `src/kitilix_session.py` stores layout data in JSON through atomic
-  replacement and loads it into Kitty's native session structures. Saved
-  IDs associate Splits layouts and proportions with new PTYs.
-- `build.sh` checks SHA-256 digests, extracts Kitty into a versioned
-  directory in `.build/`, and compiles the C modules against system
-  libraries. It copies precompiled shaders, symbols, and `kitten` from
-  the matching upstream release. The benchmark builds its upstream
-  baseline from the same inputs with the upstream sources intact.
+- `patches/kitty.patch` aggiunge la prima riga alla barra delle schede
+  orizzontale, riserva la regione della sidebar e instrada solo il mouse
+  su queste aree. Il renderer carica la sidebar tramite la stessa API
+  di celle usata dalle schede. Le schede, i divisori e le finestre
+  interne usano le normali azioni e i normali layout di Kitty.
+- `src/kitilix_ui.py` gestisce la barra, i menu, i metadati e gli eventi
+  della sidebar. `src/kitilix_watch.py` la invalida sugli eventi di
+  titolo, directory e comando. I metadati si leggono per le righe
+  visibili. Il tooltip usa un timer a scatto singolo.
+- `src/kitilix_session.py` salva i dati in JSON con sostituzione atomica
+  e ricarica le strutture native di sessione. Gli ID serializzati
+  ricollegano il layout Splits e le proporzioni alle nuove PTY.
+- `build.sh` verifica le somme SHA-256, estrae Kitty in una directory
+  versionata di `.build/` e compila i moduli C con le librerie di sistema.
+  Copia gli shader già compilati, i simboli e `kitten` dalla release
+  corrispondente. Gli stessi input, senza patch, costruiscono la
+  variante upstream del benchmark.
 
-## Rendering, thumbnails, and input
+## Rendering, anteprime e input
 
-Kitilix and Kitty share the event loop and OpenGL context. Buttons act on
-the active tab through Kitty's internal `Boss` APIs. Remote control is
-disabled in the default profile. Changing layouts keeps each pane's
-`Screen` and PTY. Terminal input, IME, clipboard, and mouse
-handling use Kitty's input path.
+La UI e Kitty condividono il loop eventi e il contesto OpenGL. I
+pulsanti operano sulla scheda attiva tramite le API interne del
+`Boss`, con la sessione remota disattivata nella configurazione
+predefinita. I pannelli conservano le loro `Screen` e PTY quando
+cambiano disposizione. Tastiera, IME, clipboard e mouse delle
+applicazioni nelle PTY seguono il percorso upstream.
 
-Opening the sidebar captures thumbnails for the tabs visible in the list,
-including inactive tabs. The renderer draws each tab into a separate OpenGL
-framebuffer, scales it on the GPU, and reads the thumbnail pixels. The
-active tab keeps focus. Scrolling captures tabs when they enter the list,
-and **Refresh thumbnails** takes new snapshots. Normal rendering continues
-through Kitty's event loop.
+All’apertura della sidebar Kitilix acquisisce le miniature delle
+schede presenti nell’elenco visibile, comprese quelle inattive. Il
+renderer dipinge i pannelli in un framebuffer OpenGL separato, riduce
+l’immagine sulla GPU e legge soltanto i pixel della miniatura, lasciando
+la scheda attiva invariata. Le anteprime sono istantanee. La rotellina
+acquisisce le schede appena entrate nella lista e il comando
+**Aggiorna miniature** ripete l’acquisizione. Il render ordinario
+prosegue attraverso il loop upstream.
 
-## Persistence and portability
+## Persistenza e portabilità
 
-A saved layout belongs to a single window and opens new local shells.
-The versioned JSON wraps Kitty 0.51.0's internal layout representation.
-Before upgrading Kitty, compare its layout structures, mouse hooks, and
-rendering lifecycle. Test restoration, resizing, drag operations, and
-graphics after updating.
+Il layout salvato riguarda una finestra e contiene dati per riaprire
+shell locali. Le disposizioni sono serializzate con il formato
+interno di Kitty 0.51.0 e l'involucro JSON ha una sua versione.
+Prima di aggiornare Kitty, confrontare struttura dei layout, hook del
+mouse e lifecycle del rendering e ripetere le prove di ripristino,
+ridimensionamento, drag e immagini.
 
-The Kitilix build compiles the X11 backend and uses the framebuffer
-coordinates and GLFW callbacks for input and rendering on Xorg.
+La build Kitilix compila il backend X11 e usa le coordinate del
+framebuffer e le callback GLFW per l’input e il rendering su Xorg.
 
-## Linux executable
+## Eseguibile Linux
 
-`package.sh` builds a native ELF with a compressed archive in a read-only
-section. The portable build targets the architecture's baseline instruction
-set. Kitty's launcher uses a relative path and an internal RPATH to load the
-bundled Python. EGL, Xorg, and graphics drivers come from the host system.
+`package.sh` assembla un ELF nativo con un archivio compresso
+incorporato in una sezione di sola lettura. La build portatile usa
+il set di istruzioni di base dell’architettura di destinazione.
+Il launcher di Kitty usa un percorso relativo per il Python incluso
+e un RPATH interno. EGL, Xorg e i driver arrivano dal sistema.
 
-At startup, the ELF extracts its runtime into a directory with `0700`
-permissions and runs the bundled `run.sh`. The launcher waits for Kitty
-and removes that directory on exit. Preferences, layouts, and personal
-overrides use the same XDG profile as the development launcher.
+All’avvio l’ELF estrae i componenti in una directory con permessi
+`0700` e lancia `run.sh` da lì. Il launcher attende Kitty e rimuove
+la directory quando termina. Preferenze, layout e modifiche
+personali usano lo stesso profilo XDG dell’avvio in sviluppo.

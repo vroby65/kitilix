@@ -67,12 +67,12 @@ def restore_layout(opts):
 
     data = json.loads(LAYOUT.read_text())
     if data["version"] != 1 or not data["tabs"]:
-        raise ValueError("Unsupported Kitilix layout format")
+        raise ValueError("Formato del layout di Kitilix non supportato")
 
     session = Session()
     for saved in data["tabs"]:
         if saved["layout"] not in LAYOUTS or not saved["panes"] or not isinstance(saved["state"], dict):
-            raise ValueError("Invalid tab in Kitilix layout")
+            raise ValueError("Scheda non valida nel layout di Kitilix")
         session.add_tab(opts, saved["name"])
         session.set_layout(saved["layout"])
         tab = session.tabs[-1]
