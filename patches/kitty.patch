@@ -1,0 +1,471 @@
+diff --git a/kitty/boss.py b/kitty/boss.py
+index b488b2c..f13288d 100644
+--- a/kitty/boss.py
++++ b/kitty/boss.py
+@@ -1613,6 +1613,18 @@ def handle_tab_bar_mouse(self, os_window_id: int, x: float, y: float, button: in
+         if tm := self.os_window_map.get(os_window_id):
+             tm.handle_tab_bar_mouse(x, y, button, modifiers, action)
+ 
++    def handle_kitilix_mouse(self, os_window_id: int, x: float, y: float, button: int, action: int, sidebar: int) -> None:
++        if tm := self.os_window_map.get(os_window_id):
++            tm.kitilix.mouse(x, y, button, action, sidebar)
++
++    def handle_kitilix_pointer_left(self, os_window_id: int) -> None:
++        if tm := self.os_window_map.get(os_window_id):
++            tm.kitilix.pointer_left()
++
++    def handle_kitilix_scroll(self, os_window_id: int, delta: float) -> None:
++        if tm := self.os_window_map.get(os_window_id):
++            tm.kitilix.scroll(delta)
++
+     def start_tab_drag(self, os_window_id: int, window_id: int, pixels: bytes, width: int, height: int) -> None:
+         # A previous drag whose drop never reached _reset_drop_previews (failed transfer, dragged
+         # tab closed, etc.) can leave stale pre-hover focus behind, discard it.
+diff --git a/kitty/child-monitor.c b/kitty/child-monitor.c
+index 1b24da1..e72685c 100644
+--- a/kitty/child-monitor.c
++++ b/kitty/child-monitor.c
+@@ -932,6 +932,11 @@ prepare_to_render_os_window(
+         if (send_cell_data_to_gpu(TD.vao_idx, TD.screen, os_window)) needs_render = true;
+         os_window->needs_layers = os_window->needs_layers || screen_needs_rendering_in_layers(os_window, NULL, TD.screen);
+     }
++    WindowRenderData *sidebar = &os_window->kitilix_sidebar_data;
++    if (sidebar->screen) {
++        if (send_cell_data_to_gpu(sidebar->vao_idx, sidebar->screen, os_window)) needs_render = true;
++        os_window->needs_layers = os_window->needs_layers || screen_needs_rendering_in_layers(os_window, NULL, sidebar->screen);
++    }
+     if (OPT(mouse_hide.hide_wait) > 0 && !is_mouse_hidden(os_window)) {
+         if (now - os_window->last_mouse_activity_at >= OPT(mouse_hide.hide_wait)) hide_mouse(os_window);
+         else set_maximum_wait(OPT(mouse_hide.hide_wait) - now + os_window->last_mouse_activity_at);
+@@ -1139,6 +1144,8 @@ render_prepared_os_window(
+     draw_borders(br->vao_idx, br->num_border_rects, br->rect_buf, br->is_dirty, active_window_bg, num_visible_windows, all_windows_have_same_bg, os_window);
+     br->is_dirty = false;
+     if (TD.screen && os_window->num_tabs && !os_window->has_too_few_tabs) draw_cells(&TD, os_window, true, true, false, NULL, NULL, now);
++    WindowRenderData *sidebar = &os_window->kitilix_sidebar_data;
++    if (sidebar->screen) draw_cells(sidebar, os_window, true, true, false, NULL, NULL, now);
+     unsigned int num_of_visible_windows = 0;
+     Window *active_window = NULL;
+     for (unsigned int i = 0; i < tab->num_windows; i++) {
+diff --git a/kitty/main.py b/kitty/main.py
+index 3c705c6..3defc38 100644
+--- a/kitty/main.py
++++ b/kitty/main.py
+@@ -329,7 +329,9 @@ def _run_app(opts: Options, args: CLIOptions, bad_lines: Sequence[BadLine] = (),
+             startup_sessions = restored.sessions
+         else:
+             try:
+-                startup_sessions = tuple(create_sessions(opts, args, default_session=opts.startup_session))
++                from .kitilix_session import restore_layout
++
++                startup_sessions = restore_layout(opts) or tuple(create_sessions(opts, args, default_session=opts.startup_session))
+             except Exception as e:
+                 startup_session_error = (e, (getattr(args, 'session', '') or opts.startup_session or ''))
+                 if getattr(args, 'session', ''):
+@@ -372,6 +374,9 @@ def _run_app(opts: Options, args: CLIOptions, bad_lines: Sequence[BadLine] = (),
+                 y=pos_y,
+             )
+         boss = Boss(opts, args, cached_values, global_shortcuts, talk_fd)
++        from .kitilix_ui import install_watchers
++
++        install_watchers()
+         boss.start(window_id, startup_sessions)
+         if restored is not None:
+             try:
+diff --git a/kitty/mouse.c b/kitty/mouse.c
+index 4127bed..9ee55b4 100644
+--- a/kitty/mouse.c
++++ b/kitty/mouse.c
+@@ -1055,6 +1055,7 @@ typedef struct MouseRegion {
+     unsigned window_idx;
+     bool in_tab_bar;
+     bool in_title_bar;
++    bool in_kitilix_toolbar, in_kitilix_sidebar;
+     Edge window_border;
+     Window *window;
+ } MouseRegion;
+@@ -1067,8 +1068,13 @@ mouse_region(bool detect_borders, bool detect_title_bar) {
+     os_window_regions(w, &central, &tab_bar);
+     const bool in_central = mouse_in_region(&central);
+     if (!in_central) {
+-        if ((tab_bar.left < central.left && w->mouse_x < central.left) || (tab_bar.right > central.right && w->mouse_x >= central.right) ||
+-            (tab_bar.top < central.top && w->mouse_y < central.top) || (tab_bar.bottom > central.bottom && w->mouse_y >= central.bottom))
++        if (OPT(tab_bar_edge) == TOP_EDGE && tab_bar.bottom > tab_bar.top) {
++            ans.in_kitilix_toolbar = w->mouse_y >= 0 && w->mouse_y < tab_bar.top + w->fonts_data->fcm.cell_height;
++            ans.in_kitilix_sidebar = w->mouse_y >= central.top && w->mouse_y < central.bottom &&
++                                    w->mouse_x >= 0 && w->mouse_x < central.left;
++        }
++        if (!ans.in_kitilix_sidebar && ((tab_bar.left < central.left && w->mouse_x < central.left) || (tab_bar.right > central.right && w->mouse_x >= central.right) ||
++            (tab_bar.top < central.top && w->mouse_y < central.top) || (tab_bar.bottom > central.bottom && w->mouse_y >= central.bottom)))
+             ans.in_tab_bar = true;
+     }
+     if (in_central && w->num_tabs > 0) {
+@@ -1220,6 +1226,11 @@ update_mouse_pointer_shape(void) {
+ 
+ void
+ leave_event(int modifiers) {
++    OSWindow *osw = global_state.callback_os_window;
++    if (osw->kitilix_toolbar_hover) {
++        osw->kitilix_toolbar_hover = false;
++        call_boss(handle_kitilix_pointer_left, "K", osw->id);
++    }
+     if (global_state.redirect_mouse_handling || global_state.active_drag_in_window || global_state.tracked_drag_in_window) return;
+     set_currently_hovered_window(0, modifiers, false);
+ }
+@@ -1555,7 +1566,17 @@ mouse_event(const int button, int modifiers, int action) {
+         call_boss(cancel_tab_bar_selection, "K", osw->id);
+         tab_bar_selecting = false;
+     }
+-    if (r.in_tab_bar || global_state.tab_being_dragged.id || tab_bar_selecting) {
++    if (osw->kitilix_toolbar_hover && !r.in_kitilix_toolbar) {
++        osw->kitilix_toolbar_hover = false;
++        call_boss(handle_kitilix_pointer_left, "K", osw->id);
++    }
++    if ((r.in_kitilix_toolbar || r.in_kitilix_sidebar) && !tab_bar_selecting &&
++        !global_state.tab_being_dragged.id && !global_state.window_being_dragged.id) {
++        osw->kitilix_toolbar_hover = r.in_kitilix_toolbar;
++        if (r.in_kitilix_toolbar || button >= 0)
++            call_boss(handle_kitilix_mouse, "Kddiii", osw->id, osw->mouse_x, osw->mouse_y, button, action, r.in_kitilix_sidebar);
++        mouse_cursor_shape = POINTER_POINTER;
++    } else if (r.in_tab_bar || global_state.tab_being_dragged.id || tab_bar_selecting) {
+         handle_tab_bar_mouse(button, modifiers, action);
+         // the event may have started or ended a selection
+         if (tab_bar_selection_in_progress(osw)) set_mouse_cursor_when_dragging(osw->tab_bar_render_data.screen);
+@@ -1976,6 +1997,10 @@ scroll_event(const GLFWScrollEvent *ev) {
+         set_os_window_mouse_position(osw, mouse_x, mouse_y);
+     }
+     MouseRegion r = mouse_region(false, true);
++    if (r.in_kitilix_sidebar) {
++        if (ev->y_offset) call_boss(handle_kitilix_scroll, "Kd", osw->id, ev->y_offset);
++        return;
++    }
+     Window *w = r.window;
+     if (!w && !r.in_tab_bar) {
+         // fallback to last active window
+diff --git a/kitty/shaders.c b/kitty/shaders.c
+index 72c50ac..8702ccc 100644
+--- a/kitty/shaders.c
++++ b/kitty/shaders.c
+@@ -3475,6 +3475,84 @@ setup_os_window_for_rendering(OSWindow *os_window, Tab *tab, Window *active_wind
+     else stop_os_window_rendering(os_window, tab, active_window, now);
+ }
+ 
++// Paint a tab into a private render target without changing window focus or
++// presenting the result. Sample only the terminal area through Kitty's blit.
++PyObject *
++capture_kitilix_tab(OSWindow *os_window, Tab *tab, unsigned max_width, unsigned max_height) {
++    Region central = {0}, tab_bar = {0};
++    os_window_regions(os_window, &central, &tab_bar);
++    unsigned vw = os_window->viewport_width, vh = os_window->viewport_height;
++    long width = central.right - central.left, height = central.bottom - central.top;
++    if (width <= 0 || height <= 0 || !max_width || !max_height || !os_window->handle) Py_RETURN_NONE;
++    double scale = MIN(1., MIN((double)max_width / width, (double)max_height / height));
++    unsigned dw = MAX(1u, (unsigned)(width * scale)), dh = MAX(1u, (unsigned)(height * scale));
++    PyObject *pixels = PyBytes_FromStringAndSize(NULL, (Py_ssize_t)dw * dh * 4);
++    if (!pixels) return NULL;
++
++    make_os_window_context_current(os_window);
++    set_gpu_viewport(vw, vh);
++    GLuint scene_tex = 0, scene_fbo = 0, thumb_tex = 0, thumb_fbo = 0;
++    setup_texture_as_render_target(vw, vh, &scene_tex, &scene_fbo);
++    bool needs_layers = os_window->needs_layers;
++    os_window->needs_layers = true;
++    unsigned visible = 0;
++    color_type background = OPT(background);
++    if (tab->active_window < tab->num_windows) {
++        Screen *screen = tab->windows[tab->active_window].render_data.screen;
++        if (screen) background = colorprofile_to_color(screen->color_profile, screen->color_profile->overridden.default_bg,
++                                                       screen->color_profile->configured.default_bg).rgb;
++    }
++    for (unsigned i = 0; i < tab->num_windows; i++) {
++        const Window *w = tab->windows + i;
++        if (w->visible && w->render_data.screen) visible++;
++    }
++    blank_canvas(1.f, background, false);
++    draw_bg_image(os_window, tab);
++    BorderRects *br = &tab->border_rects;
++    draw_borders(br->vao_idx, br->num_border_rects, br->rect_buf, br->is_dirty, background, visible, false, os_window);
++    br->is_dirty = false;
++    monotonic_t now = monotonic();
++    for (unsigned i = 0; i < tab->num_windows; i++) {
++        Window *w = tab->windows + i;
++        WindowRenderData *d = &w->render_data;
++        if (!w->visible || !d->screen || d->geometry.right <= d->geometry.left || d->geometry.bottom <= d->geometry.top) continue;
++        bool active = tab->active_window == i;
++        send_cell_data_to_gpu(d->vao_idx, d->screen, os_window);
++        CursorRenderInfo cursor = d->screen->cursor_render_info;
++        d->screen->cursor_render_info.cursor_opacity = 0;
++        d->screen->cursor_render_info.text_blink_opacity = 1;
++        draw_cells(d, os_window, active, false, visible == 1, w, NULL, now);
++        d->screen->cursor_render_info = cursor;
++        WindowRenderData *title = &w->window_title_render_data;
++        if (title->screen && title->geometry.right > title->geometry.left && title->geometry.bottom > title->geometry.top) {
++            send_cell_data_to_gpu(title->vao_idx, title->screen, os_window);
++            draw_cells(title, os_window, active, true, false, NULL, w, now);
++        }
++    }
++    draw_rounded_borders(br, background, visible, false, os_window);
++    os_window->needs_layers = needs_layers;
++
++    setup_texture_as_render_target(dw, dh, &thumb_tex, &thumb_fbo);
++    save_viewport_using_bottom_left_origin(0, 0, dw, dh);
++    bind_program(BLIT_PROGRAM);
++    bind_vertex_array(br->vao_idx);
++    glActiveTexture(GL_TEXTURE0 + GRAPHICS_UNIT);
++    glBindTexture(GL_TEXTURE_2D, scene_tex);
++    glUniform4f(program_uniform_location(BLIT_PROGRAM, "src_rect"), (float)central.left / vw, (float)(vh - central.top) / vh,
++                (float)central.right / vw, (float)(vh - central.bottom) / vh);
++    glUniform4f(program_uniform_location(BLIT_PROGRAM, "dest_rect"), -1, 1, 1, -1);
++    draw_quad(false, 0);
++    glReadPixels(0, 0, dw, dh, GL_RGBA, GL_UNSIGNED_BYTE, PyBytes_AS_STRING(pixels));
++    unbind_vertex_array();
++    restore_viewport();
++    bind_framebuffer_for_output(0);
++    free_framebuffer(&thumb_fbo);
++    free_texture(&thumb_tex);
++    free_framebuffer(&scene_fbo);
++    free_texture(&scene_tex);
++    return Py_BuildValue("NII", pixels, dw, dh);
++}
++
+ // Take a screenshot of the OS Window, must be called immediately after
+ // the OSWindow is rendered into the back buffer and before the buffers
+ // are swapped. If thumb_w or thumb_h are zero the are set to the corresponding
+diff --git a/kitty/state.c b/kitty/state.c
+index b7bca29..b88e41e 100644
+--- a/kitty/state.c
++++ b/kitty/state.c
+@@ -311,6 +311,7 @@ add_os_window(void) {
+     zero_at_ptr(ans);
+     ans->id = ++global_state.os_window_id_counter;
+     ans->tab_bar_render_data.vao_idx = create_cell_vao();
++    ans->kitilix_sidebar_data.vao_idx = -1;
+     ans->background_opacity.alpha = OPT(background_opacity);
+     ans->created_at = monotonic();
+     init_shader_animation_state(ans);
+@@ -612,6 +613,8 @@ destroy_os_window_item(OSWindow *w) {
+     Py_CLEAR(w->window_title);
+     Py_CLEAR(w->tab_bar_render_data.screen);
+     free_vao(w->tab_bar_render_data.vao_idx);
++    Py_CLEAR(w->kitilix_sidebar_data.screen);
++    if (w->kitilix_sidebar_data.vao_idx >= 0) free_vao(w->kitilix_sidebar_data.vao_idx);
+     free(w->tabs);
+     w->tabs = NULL;
+     free_bgimage(&w->background_image.override, true);
+@@ -816,14 +819,18 @@ os_window_regions(const OSWindow *os_window, Region *central, Region *tab_bar) {
+         central->bottom = os_window->viewport_height;
+         switch (OPT(tab_bar_edge)) {
+             case TOP_EDGE: {
+-                unsigned tab_bar_height = os_window->fonts_data->fcm.cell_height + margin_inner + margin_outer;
++                unsigned cell_width = os_window->fonts_data->fcm.cell_width;
++                unsigned bar_cells = os_window->viewport_width / MAX(1u, cell_width);
++                if (os_window->kitilix_sidebar_visible && bar_cells >= 45)
++                    central->left = MIN(30u, bar_cells / 3u) * cell_width;
++                unsigned tab_bar_height = 2 * os_window->fonts_data->fcm.cell_height + margin_inner + margin_outer;
+                 central->top = tab_bar_height;
+                 central->bottom = os_window->viewport_height;
+                 central->top = MIN(central->top, central->bottom);
+                 tab_bar->top = margin_outer;
+-                tab_bar->left = central->left;
++                tab_bar->left = 0;
+                 tab_bar->right = central->right;
+-                tab_bar->bottom = tab_bar->top + os_window->fonts_data->fcm.cell_height;
++                tab_bar->bottom = tab_bar->top + 2 * os_window->fonts_data->fcm.cell_height;
+                 break;
+             }
+             case LEFT_EDGE: {
+@@ -1215,6 +1222,79 @@ PYWRAP1(set_tab_bar_render_data) {
+     Py_RETURN_NONE;
+ }
+ 
++PYWRAP1(set_kitilix_sidebar_visible) {
++    id_type os_window_id;
++    int visible;
++    PA("Kp", &os_window_id, &visible);
++    WITH_OS_WINDOW(os_window_id)
++    os_window->kitilix_sidebar_visible = visible;
++    END_WITH_OS_WINDOW
++    Py_RETURN_NONE;
++}
++
++extern PyTypeObject Screen_Type;
++
++PYWRAP1(set_kitilix_sidebar_data) {
++    id_type os_window_id;
++    PyObject *screen;
++    WindowGeometry g = {0};
++    PA("KOIIII", &os_window_id, &screen, &g.left, &g.top, &g.right, &g.bottom);
++    WITH_OS_WINDOW(os_window_id)
++    WindowRenderData *d = &os_window->kitilix_sidebar_data;
++    if (screen == Py_None) {
++        Py_CLEAR(d->screen);
++    } else if (PyObject_TypeCheck(screen, &Screen_Type)) {
++        if (d->vao_idx < 0) d->vao_idx = create_cell_vao();
++        init_window_render_data(d, g, (Screen *)screen);
++    } else {
++        PyErr_SetString(PyExc_TypeError, "Expected a Kitty Screen");
++        return NULL;
++    }
++    os_window->needs_render = true;
++    END_WITH_OS_WINDOW
++    Py_RETURN_NONE;
++}
++
++PYWRAP1(capture_kitilix_tab) {
++    id_type os_window_id, tab_id;
++    unsigned width, height;
++    PA("KKII", &os_window_id, &tab_id, &width, &height);
++    WITH_TAB(os_window_id, tab_id)
++    return capture_kitilix_tab(osw, tab, MIN(width, 300u), MIN(height, 300u));
++    END_WITH_TAB
++    Py_RETURN_NONE;
++}
++
++PYWRAP1(set_kitilix_sidebar_image) {
++    id_type os_window_id, window_id;
++    PyObject *rgba;
++    unsigned width, height, row, column, columns, rows;
++    PA("KKO!IIIIII", &os_window_id, &window_id, &PyBytes_Type, &rgba, &width, &height, &row, &column, &columns, &rows);
++    Py_ssize_t length = PyBytes_GET_SIZE(rgba);
++    WITH_OS_WINDOW(os_window_id)
++    Screen *screen = os_window->kitilix_sidebar_data.screen;
++    if (screen) {
++        screen->is_dirty = true;
++        if (!length) {
++            grman_clear(screen->grman, true, screen->cell_size);
++        } else if (width && height && width <= 300 && height <= 300 && length == (Py_ssize_t)width * height * 4 &&
++                   column < screen->columns && columns && columns <= screen->columns - column &&
++                   row < screen->lines && rows && rows <= screen->lines - row) {
++            const GraphicsCommand cmd = {
++                .action = 'T', .format = 32, .data_width = width, .data_height = height,
++                .payload_sz = (size_t)length, .quiet = 2, .cursor_movement = 1,
++                .num_cells = columns, .num_lines = rows, .usage_hints = GRAPHICS_USAGE_HINT_TRANSIENT,
++            };
++            grman_set_window_id(screen->grman, window_id);
++            screen->cursor->x = column;
++            screen->cursor->y = row;
++            grman_handle_command(screen->grman, &cmd, (const uint8_t *)PyBytes_AS_STRING(rgba), screen->cursor, &screen->is_dirty, screen->cell_size);
++        }
++    }
++    END_WITH_OS_WINDOW
++    Py_RETURN_NONE;
++}
++
+ PYWRAP1(set_window_drag_overlay) {
+     id_type os_window_id, tab_id, window_id;
+     int quadrant;
+@@ -2210,6 +2290,10 @@ static PyMethodDef module_methods[] = {
+     MW(reorder_tabs, METH_VARARGS),
+     MW(set_borders_rects, METH_VARARGS),
+     MW(set_tab_bar_render_data, METH_VARARGS),
++    MW(set_kitilix_sidebar_visible, METH_VARARGS),
++    MW(set_kitilix_sidebar_data, METH_VARARGS),
++    MW(set_kitilix_sidebar_image, METH_VARARGS),
++    MW(capture_kitilix_tab, METH_VARARGS),
+     MW(set_window_title_bar_render_data, METH_VARARGS),
+     MW(set_window_render_data, METH_VARARGS),
+     MW(set_window_drag_overlay, METH_VARARGS),
+diff --git a/kitty/state.h b/kitty/state.h
+index e038bdf..4457f51 100644
+--- a/kitty/state.h
++++ b/kitty/state.h
+@@ -606,7 +606,8 @@ typedef struct OSWindow {
+     unsigned int active_tab, num_tabs, capacity, last_active_tab, last_num_tabs, last_active_window_id;
+     bool focused_at_last_render, needs_render, needs_layers, input_held;
+     unsigned keep_rendering_till_swap;
+-    WindowRenderData tab_bar_render_data;
++    WindowRenderData tab_bar_render_data, kitilix_sidebar_data;
++    bool kitilix_sidebar_visible, kitilix_toolbar_hover;
+     struct {
+         color_type left, right;
+     } tab_bar_edge_color;
+@@ -879,6 +880,7 @@ void dispatch_buffered_keys(Window *w);
+ void free_buffered_keys(Window *w);
+ bool screen_needs_rendering_in_layers(OSWindow *os_window, Window *w, Screen *screen);
+ void setup_os_window_for_rendering(OSWindow *, Tab *, Window *, bool, monotonic_t);
++PyObject *capture_kitilix_tab(OSWindow *, Tab *, unsigned, unsigned);
+ monotonic_t update_custom_shader_animations(ShaderAnimEventMask event_mask, monotonic_t now, OSWindow *os_window);
+ void init_shader_animation_state(OSWindow *os_window);
+ 
+diff --git a/kitty/tab_bar.py b/kitty/tab_bar.py
+index 75edefa..d6d6718 100644
+--- a/kitty/tab_bar.py
++++ b/kitty/tab_bar.py
+@@ -1033,7 +1033,7 @@ def layout(self) -> None:
+         else:
+             available_width = tab_bar.width - 2 * self.margin_width
+             ncells = max(4, available_width // cell_width)
+-            s.resize(1, ncells)
++            s.resize(2 if self.tab_bar_edge == TOP_EDGE else 1, ncells)
+             s.reset_mode(DECAWM)
+             cell_area_width = ncells * cell_width
+             available_width_for_left_margin = max(0, tab_bar.width - self.margin_width - cell_area_width)
+@@ -1116,6 +1116,7 @@ def cancel_selection(self) -> None:
+ 
+     def update_horizontal(self, data: Sequence[TabBarData]) -> bool:
+         s = self.screen
++        row = s.cursor.y = s.lines - 1
+         last_tab = data[-1] if data else None
+         ed = ExtraData()
+         self.last_laid_out_tabs = data
+@@ -1129,7 +1130,7 @@ def draw_tab(i: int, tab: TabBarData, cell_ranges: list[TabExtent], max_tab_leng
+             before = s.cursor.x
+             end = self.draw_func(self.draw_data, s, tab, before, max_tab_length, i + 1, tab is last_tab, ed)
+             s.cursor.bg = s.cursor.fg = 0
+-            cell_ranges.append(TabExtent(tab_id=tab.tab_id, x=CellRange(before, end)))
++            cell_ranges.append(TabExtent(tab.tab_id, CellRange(before, end), CellRange(row, row)))
+             if not ed.for_layout and tab is not last_tab and s.cursor.x > s.columns - max_tab_lengths[i + 1]:
+                 # Stop if there is no space for next tab
+                 s.cursor.x = s.columns - 2
+@@ -1339,7 +1340,7 @@ def draw_drop_insert_marker(self) -> None:
+                 s.draw('━' * s.columns)
+         else:
+             coordinate = extents[idx].x.start if idx < len(extents) else (extents[-1].x.end + 1 if extents else 0)
+-            s.cursor.x, s.cursor.y = min(s.columns - 1, coordinate), 0
++            s.cursor.x, s.cursor.y = min(s.columns - 1, coordinate), s.lines - 1
+             s.draw('┃')
+         s.cursor.fg = s.cursor.bg = 0
+ 
+diff --git a/kitty/tabs.py b/kitty/tabs.py
+index d914d03..d574349 100644
+--- a/kitty/tabs.py
++++ b/kitty/tabs.py
+@@ -64,6 +64,7 @@
+ from .layout.base import DragOverlayMode, Layout
+ from .layout.interface import all_layouts, create_layout_object_for, evict_cached_layouts
+ from .progress import ProgressState
++from .kitilix_ui import Chrome
+ from .tab_bar import TabBar, TabBarData, WindowDropTarget, apply_title_template
+ from .types import CloseEvent, DockSpec, WindowResizeDragData, ac
+ from .typing_compat import EdgeLiteral, SessionTab, SessionType, TypedDict
+@@ -1648,6 +1649,7 @@ def __init__(self, os_window_id: int, args: CLIOptions, wm_class: str, wm_name:
+         self._os_window_docks_host: weakref.ReferenceType[Tab] | None = None
+         # True when the windows of the OS window docks are in no tab, see park_os_window_docks()
+         self._os_window_docks_parked = False
++        self.kitilix = Chrome(self)
+ 
+         if startup_session is not None:
+             self.add_tabs_from_session(startup_session)
+@@ -1820,6 +1822,7 @@ def layout_tab_bar(self) -> None:
+         # set tab_bar_should_be_visible so that tab_bar.layout() gets correct dimensions
+         self.mark_tab_bar_dirty()
+         self.tab_bar.layout()
++        self.kitilix.layout_sidebar()
+ 
+     @property
+     def any_window(self) -> Window | None:
+@@ -1842,6 +1845,7 @@ def update_tab_bar_data(self) -> None:
+         if self.tab_bar.update(self.tab_bar_data):
+             for tab in self.tabs:
+                 tab.relayout_borders()
++        self.kitilix.update()
+ 
+     def title_changed(self, tab: Tab) -> None:
+         self.mark_tab_bar_dirty()
+@@ -2708,6 +2712,7 @@ def destroy(self, close_event: CloseEvent | None = None) -> None:
+         self.sync_os_window_docks()
+         for t in self:
+             t.destroy(close_event)
++        self.kitilix.destroy()
+         self.tab_bar.destroy()
+         del self.tab_bar
+         del self.tabs

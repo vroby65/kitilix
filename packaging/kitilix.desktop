@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Kitilix
+Comment=Graphical terminal with tabs and panes
+Exec=kitilix
+Icon=kitilix
+Terminal=false
+Categories=System;TerminalEmulator;
+StartupWMClass=kitilix
